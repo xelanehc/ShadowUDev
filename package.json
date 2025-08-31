@@ -1,0 +1,14 @@
+{
+  "name": "supabase-dev-platform",
+  "version": "1.0.0",
+  "description": "A dev platform for viewing Supabase data.",
+  "main": "index.html",
+  "scripts": {
+    "dev": "live-server --port=8080"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "live-server": "^1.2.0"
+  }
+}

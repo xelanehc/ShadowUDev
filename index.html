@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase Dev Platform</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /* A little custom CSS for better aesthetics */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .data-card {
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.2s ease-in-out;
+        }
+        .data-card:hover {
+            transform: translateY(-4px);
+        }
+    </style>
+     <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900">Project Dev Platform</h1>
+            <p class="text-lg text-gray-600 mt-2">Live data from your Supabase backend.</p>
+        </header>
+
+        <!-- Controls for selecting tables -->
+        <div class="flex justify-center items-center space-x-2 md:space-x-4 mb-8 bg-white p-3 rounded-xl shadow-sm max-w-md mx-auto">
+            <!-- NOTE: Add a button for each table you want to view -->
+            <button id="view-bookings-btn" class="table-btn flex-1 bg-indigo-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-opacity-75 transition-colors">
+                View Bookings
+            </button>
+            <button id="view-forms-btn" class="table-btn flex-1 bg-gray-200 text-gray-700 font-semibold py-2 px-4 rounded-lg hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-opacity-75 transition-colors">
+                View Forms
+            </button>
+        </div>
+
+        <!-- Data Display Area -->
+        <main>
+            <h2 id="current-view-title" class="text-2xl font-semibold mb-4 text-center"></h2>
+            <div id="data-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Data will be dynamically inserted here -->
+            </div>
+
+            <!-- Loading Spinner -->
+            <div id="loader" class="text-center py-10 hidden">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+                <p class="mt-4 text-gray-600">Fetching data...</p>
+            </div>
+
+            <!-- Error Message -->
+            <div id="error-message" class="text-center py-10 hidden bg-red-100 text-red-700 p-4 rounded-lg">
+                <!-- Error content will be here -->
+            </div>
+             <!-- No Data Message -->
+            <div id="no-data-message" class="text-center py-10 hidden bg-gray-100 text-gray-500 p-4 rounded-lg">
+                 No records found.
+            </div>
+        </main>
+
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        // ⚠️ IMPORTANT: Replace with your Supabase Project URL and Anon Key.
+        // Find these in your Supabase project dashboard: Settings > API.
+        const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+        const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        
+        // --- ELEMENT REFERENCES ---
+        const dataContainer = document.getElementById('data-container');
+        const loader = document.getElementById('loader');
+        const errorMessage = document.getElementById('error-message');
+        const noDataMessage = document.getElementById('no-data-message');
+        const currentViewTitle = document.getElementById('current-view-title');
+        const tableButtons = document.querySelectorAll('.table-btn');
+
+        // Check if Supabase client is available
+        if (!window.supabase) {
+            console.error("Supabase client not loaded. Check the script tag.");
+            errorMessage.textContent = 'Error: Supabase client could not be loaded.';
+            errorMessage.classList.remove('hidden');
+        }
+        
+        const { createClient } = window.supabase;
+        const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // --- FUNCTIONS ---
+
+        /**
+         * Clears all displayed messages and data.
+         */
+        function clearDisplay() {
+            dataContainer.innerHTML = '';
+            loader.classList.add('hidden');
+            errorMessage.classList.add('hidden');
+            noDataMessage.classList.add('hidden');
+        }
+        
+        /**
+         * Fetches and displays data from a specified Supabase table.
+         * @param {string} tableName - The name of the table to fetch from.
+         * @param {string} displayTitle - The title to show on the UI.
+         */
+        async function fetchData(tableName, displayTitle) {
+            clearDisplay();
+            loader.classList.remove('hidden');
+            currentViewTitle.textContent = `Viewing: ${displayTitle}`;
+
+            try {
+                // Check for placeholder credentials
+                if (SUPABASE_URL === 'YOUR_SUPABASE_URL' || SUPABASE_ANON_KEY === 'YOUR_SUPABASE_ANON_KEY') {
+                    throw new Error("Supabase URL and Key are not configured. Please update the script.");
+                }
+
+                const { data, error } = await supabase
+                    .from(tableName)
+                    .select('*'); // Fetches all columns
+
+                if (error) {
+                    throw error; // Throw the error to be caught by the catch block
+                }
+                
+                clearDisplay();
+
+                if (data && data.length > 0) {
+                    renderData(data);
+                } else {
+                    noDataMessage.classList.remove('hidden');
+                }
+
+            } catch (error) {
+                console.error('Error fetching data:', error.message);
+                clearDisplay();
+                errorMessage.textContent = `Error: ${error.message}. Check the console for more details. Is the table name '${tableName}' correct?`;
+                errorMessage.classList.remove('hidden');
+            }
+        }
+
+        /**
+         * Renders the fetched data into the data container.
+         * @param {Array<Object>} data - An array of objects from Supabase.
+         */
+        function renderData(data) {
+            data.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'data-card bg-white p-4 rounded-lg border';
+                
+                // Display the record ID prominently
+                const idHeader = document.createElement('h3');
+                idHeader.className = 'text-lg font-bold text-indigo-700 mb-2';
+                idHeader.textContent = `ID: ${item.id}`;
+                card.appendChild(idHeader);
+
+                // Display all other fields as pre-formatted JSON
+                const pre = document.createElement('pre');
+                pre.className = 'bg-gray-100 p-3 rounded-md text-sm overflow-x-auto';
+                
+                const code = document.createElement('code');
+                code.textContent = JSON.stringify(item, null, 2); // Pretty print the JSON
+                
+                pre.appendChild(code);
+                card.appendChild(pre);
+                
+                dataContainer.appendChild(card);
+            });
+        }
+        
+        /**
+         * Handles button clicks to switch active state and fetch data.
+         */
+        function handleTableButtonClick(event) {
+            // Update button styles
+            tableButtons.forEach(btn => {
+                btn.classList.remove('bg-indigo-600', 'text-white');
+                btn.classList.add('bg-gray-200', 'text-gray-700');
+            });
+            event.target.classList.add('bg-indigo-600', 'text-white');
+            event.target.classList.remove('bg-gray-200', 'text-gray-700');
+            
+            // Fetch data based on button ID
+            if (event.target.id === 'view-bookings-btn') {
+                 // IMPORTANT: Replace 'bookings' with your actual table name
+                fetchData('bookings', 'Bookings');
+            } else if (event.target.id === 'view-forms-btn') {
+                 // IMPORTANT: Replace 'forms' with your actual table name
+                fetchData('forms', 'Forms');
+            }
+        }
+
+        // --- EVENT LISTENERS ---
+        document.getElementById('view-bookings-btn').addEventListener('click', handleTableButtonClick);
+        document.getElementById('view-forms-btn').addEventListener('click', handleTableButtonClick);
+
+        // --- INITIAL LOAD ---
+        // Automatically click the first button to load initial data on page load.
+        document.getElementById('view-bookings-btn').click();
+
+    </script>
+</body>
+</html>
